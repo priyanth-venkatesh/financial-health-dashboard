@@ -1,22 +1,31 @@
-import { useState } from "react";
+import React from "react";
 import API from "../services/api";
 
-export default function FileUpload({ setData, setInsight }) {
-  const [file, setFile] = useState(null);
+function UploadForm({ setData }) {
+  const upload = async (e) => {
+    const file = e.target.files[0];
 
-  const upload = async () => {
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await API.post("/upload", formData);
-    setData(res.data.chart_data);
-    setInsight(res.data.summary);
+    try {
+      const res = await API.post("/upload", formData, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      setData(res.data);
+    } catch (err) {
+      alert("Upload failed");
+    }
   };
 
   return (
-    <div style={{ marginBottom: 20 }}>
-      <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-      <button onClick={upload}>Upload & Analyze</button>
+    <div>
+      <input type="file" accept=".csv" onChange={upload} />
     </div>
   );
 }
+
+export default UploadForm;

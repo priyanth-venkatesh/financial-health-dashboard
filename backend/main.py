@@ -2,29 +2,26 @@ from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import pandas as pd
-import os
 
 from database import SessionLocal, engine, Base
 from models import User, FinancialRecord, Insight
 from simple_auth import create_token
-
 from pydantic import BaseModel
 
-# Create tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# Allow frontend access (Vercel)
+# CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You can restrict later
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------- DB Dependency ----------------
+# ---------------- DB ----------------
 def get_db():
     db = SessionLocal()
     try:
@@ -33,82 +30,70 @@ def get_db():
         db.close()
 
 
-# ---------------- Schemas ----------------
+# ---------------- LOGIN SCHEMA ----------------
 class LoginRequest(BaseModel):
     email: str
     password: str
 
 
-# ---------------- Root ----------------
+# ---------------- ROOT ----------------
 @app.get("/")
 def root():
-    return {"message": "Finance backend is running 🚀"}
+    return {"message": "Backend working ✅"}
 
 
-# ---------------- Login ----------------
+# ---------------- LOGIN ----------------
 @app.post("/login")
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
 
     if not user or user.password != data.password:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = create_token(user.email)
     return {"token": token}
 
 
-# ---------------- Upload CSV & Analyze ----------------
+# ---------------- UPLOAD CSV ----------------
 @app.post("/upload")
 async def upload(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    try:
-        # Read CSV
-        df = pd.read_csv(file.file)
 
-        # Validate required columns
-        required_cols = {"revenue", "expenses", "debt", "cash"}
-        if not required_cols.issubset(set(df.columns)):
-            raise HTTPException(
-                status_code=400,
-                detail="CSV must contain columns: revenue, expenses, debt, cash",
-            )
+    df = pd.read_csv(file.file)
 
-        summaries = []
+    required_cols = {"revenue", "expenses", "debt", "cash"}
+    if not required_cols.issubset(df.columns):
+        raise HTTPException(
+            status_code=400,
+            detail="CSV must contain: revenue, expenses, debt, cash",
+        )
 
-        for _, row in df.iterrows():
-            revenue = float(row["revenue"])
-            expenses = float(row["expenses"])
-            debt = float(row["debt"])
-            cash = float(row["cash"])
+    summaries = []
 
-            # Save financial record
-            record = FinancialRecord(
-                user_id=1,  # demo user
-                revenue=revenue,
-                expenses=expenses,
-                debt=debt,
-                cash=cash,
-            )
-            db.add(record)
+    for _, row in df.iterrows():
+        revenue = float(row["revenue"])
+        expenses = float(row["expenses"])
+        debt = float(row["debt"])
+        cash = float(row["cash"])
 
-            # Simple rule-based insight
-            if revenue > expenses and cash > debt:
-                summary = "The business is profitable with healthy liquidity."
-            elif revenue > expenses:
-                summary = "The business is profitable but liquidity risk detected."
-            else:
-                summary = "The business is running at a loss. Reduce expenses."
+        record = FinancialRecord(
+            user_id=1,
+            revenue=revenue,
+            expenses=expenses,
+            debt=debt,
+            cash=cash,
+        )
+        db.add(record)
 
-            insight = Insight(user_id=1, summary=summary)
-            db.add(insight)
+        if revenue > expenses and cash > debt:
+            summary = "Profitable with healthy liquidity."
+        elif revenue > expenses:
+            summary = "Profitable but liquidity risk."
+        else:
+            summary = "Running at loss. Reduce expenses."
 
-            summaries.append(summary)
+        db.add(Insight(user_id=1, summary=summary))
+        summaries.append(summary)
 
-        db.commit()
+    db.commit()
 
-        return {
-            "summary": summaries[-1],  # return latest insight
-            "all_summaries": summaries,
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"summary": summaries[-1], "all": summaries}

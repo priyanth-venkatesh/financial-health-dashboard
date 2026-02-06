@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import UploadForm from "../components/UploadForm";
+import FileUpload from "../components/FileUpload";
 
 function Dashboard() {
   const [data, setData] = useState(null);
@@ -8,10 +8,10 @@ function Dashboard() {
     <div style={{ padding: 40 }}>
       <h2>Dashboard</h2>
 
-      <UploadForm setData={setData} />
+      <FileUpload setData={setData} />
 
       {data && (
-        <div>
+        <div style={{ marginTop: 20 }}>
           <h3>Financial Insight</h3>
           <p>{data.summary}</p>
         </div>

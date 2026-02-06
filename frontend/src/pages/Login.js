@@ -7,23 +7,22 @@ function Login() {
 
   const handleLogin = async () => {
     try {
-      const res = await API.post("/login", {
-        email,
-        password,
-      });
+      const res = await API.post("/login", { email, password });
 
-      localStorage.setItem("token", res.data.access_token);
+      // store token
+      localStorage.setItem("token", res.data.token);
 
-      // go to dashboard
+      // redirect
       window.location.href = "/dashboard";
     } catch (err) {
-      alert("Login failed. Check email/password.");
+      console.error(err);
+      alert("Invalid email or password");
     }
   };
 
   return (
     <div style={{ padding: 40 }}>
-      <h2>Login</h2>
+      <h2>Financial Health Dashboard Login</h2>
 
       <input
         type="email"

@@ -7,3 +7,5 @@ python-multipart
 pydantic
 scikit-learn
 python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
